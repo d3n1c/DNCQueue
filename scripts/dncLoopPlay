@@ -1,0 +1,10 @@
+#!/bin/bash
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+while :
+do 
+  cd $DIR
+#  ls
+  /usr/bin/php dncqueue_play.php
+  sleep 3
+done

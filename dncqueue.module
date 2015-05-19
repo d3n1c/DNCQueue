@@ -1,0 +1,273 @@
+<?php
+
+/* 
+ * Copyright (C) 2015 denic
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * Implementation of hook_load
+ *  @return arg
+ **/
+function dncqueue_load($arg) {
+  return $arg;
+}
+
+/**
+ * Implemented hook_permission
+ * to handle user access stricly
+ * 
+ * @return array
+ */
+function dncqueue_permission() {
+  return array (
+    'input dnc queue' => array(
+      'title' => t('Input DNC Queue'),
+      'description' => t('Input number in queue system')
+    ),
+    'use dnc queue' => array(
+      'title' => t('Use DNC Queue'),
+      'description' => t('Use number in queue system')
+    ),
+    'view dnc queue' => array(
+      'title' => t('View DNC Queue'),
+      'description' => t('Viewing number in queue system')
+    ),
+    'administer dnc queue' => array(
+      'title' => t('Administer DNC Queue'),
+      'description' => t('Administer all action of queue system')
+    ),
+  );
+}
+
+function dncqueue_menu() {
+  $items = array();
+  
+  $items['admin/config/system/dncsystem/dncqueue'] = array(
+    'title' => 'Queue System',
+    'description' => 'DNC Queue system parameters and configurations',
+    'access arguments' => array('administer dnc queue'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dncqueue_admin_params'),
+    'file' => 'dncqueue.admin.inc',
+  );
+  $items['dncqueue'] = array(
+    'title' => 'Queue Show',
+    'description' => 'DNC Queue system to show queue',
+    'access callback' => TRUE,
+    'page callback' => 'dncqueue_show_all_served_number',
+    'type' => MENU_CALLBACK,
+  );
+  $items['dncqueue/%dncqueue'] = array(
+    'title' => 'Queue Show',
+    'description' => 'DNC Queue system to show queue',
+    'access callback' => TRUE,
+    'page callback' => 'dncqueue_show_served_number',
+    'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+function dncqueue_expose_served_number($section = NULL) {
+  $return = array();
+  $data = variable_get('dncqueue_display', array());
+  if (!empty($section)) {
+    if (!empty($data[$section])) {
+      $return['section'] = $section;
+      $return += $data[$section];
+    }
+  }
+  else {
+    foreach ($data as $key => $value) {
+      $dump = array();
+      $dump['section'] = $key;
+      $dump += $value;
+      $return[] = $dump;
+      unset ($dump);
+    }
+  }
+  unset ($data);
+  return $return;
+}
+
+function dncqueue_show_all_served_number() {
+  $output = dncqueue_expose_served_number();
+  if (empty($output) || count($output) < 1) {
+    unset ($output);
+    exit;
+  }
+  drupal_json_output($output);
+  exit;
+}
+
+function dncqueue_show_served_number() {
+  $varkey = explode('/', drupal_get_path_alias($_GET['q']));
+  $varkey = $varkey[(count($varkey) - 1)];
+  $output = dncqueue_expose_served_number($varkey);
+  unset ($varkey);
+  if (empty($output) || count($output) < 1) {
+    unset ($output);
+    exit;
+  }
+  drupal_json_output($output);
+  exit;
+}
+
+function dncqueue_challange_table_params($stringtype, $goto = NULL) {
+  $strvar = 'dncqueue_' . $stringtype . '_table';
+  $vkind = variable_get($strvar, array());
+  unset ($strvar);
+  if (count($vkind) < 1 || !isset($vkind['nodetype'])) {
+    drupal_set_message(t('We need @stringtype default parameter first, please solve this problem first !', array('@stringtype' => $stringntype)), 'error', FALSE);
+    unset ($vkind);
+    $goto = is_null($goto) ? 'admin/config/system/dncsystem/dncqueue' : $goto;
+    drupal_goto(drupal_get_path_alias($goto));
+    return;
+  }
+  return $vkind;
+}
+
+function dncqueue_get_section_title($nid) {
+  $vparams = dncqueue_challange_table_params('section');
+  $data = array();
+  $data[0]['nodetype'] = $vparams['nodetype'];
+  $data[0]['data'][0]['condition'][] = array('nid', $nid);
+  $data[0]['data'][0]['range'] = array(0, 1);
+  $result = dncentityshare_search_entities($data, FALSE, 1);
+  $result = !empty($result[0]['data'][0]['result'][0]) ? $result[0]['data'][0]['result'][0] : NULL;
+  unset ($data);
+  return !empty($result[$vparams['title']]) ? $result[$vparams['title']] : NULL;
+}
+
+function dncqueue_get_section_data($nid) {
+  $vparams = dncqueue_challange_table_params('section');
+  $data = array();
+  $data[0]['nodetype'] = $vparams['nodetype'];
+  $data[0]['data'][0]['condition'][] = array('nid', $nid);
+  $data[0]['data'][0]['range'] = array(0, 1);
+  $result = dncentityshare_search_entities($data, FALSE, 1);
+  $result = !empty($result[0]['data'][0]['result'][0]) ? $result[0]['data'][0]['result'][0] : NULL;
+  unset ($data);
+  return !empty($result[$vparams['title']]) ? $result : NULL;
+}
+
+function dncqueue_get_sections($uid = NULL) {
+  $vparams = dncqueue_challange_table_params('section');
+  $data = array();
+  $data[0]['nodetype'] = $vparams['nodetype'];
+  $result = dncentityshare_search_entities($data, FALSE, $uid);
+  return !empty($result[0]['data'][0]['result']) ? $result[0]['data'][0]['result'] : array('error' => 1, 'message' => t('Sorry, no results found :('));
+}
+
+function dncqueue_input_new_served($section, $number, $suffix = NULL, $uid = NULL) {
+  $user = !empty($uid) ? user_load($uid) : NULL;
+  if (!user_access('use dnc queue', $user)) {
+    unset ($user);
+    return array('error' => 1, 'message' => t('Sorry you\'re not authorized :('));
+  }
+  return dncqueue_send_to_sound_queue($section, $number, $suffix);
+}
+
+function dncqueue_set_current_display($section, $number, $suffix = NULL) {
+  $vparams = dncqueue_challange_table_params('section');
+  $sectiondata = dncqueue_get_section_data($section);
+  $defaults = variable_get('dncqueue_display', array());
+  $defaults[$section]['prefix'] = $sectiondata[$vparams['nomenclature']];
+  $defaults[$section]['number'] = $number;
+  $defaults[$section]['suffix'] = $suffix;
+  variable_set('dncqueue_display', $defaults);
+  unset ($defaults, $sectiondata);
+}
+
+function dncqueue_send_to_sound_queue($section, $number, $suffix = NULL) {
+  $check = dncqueue_get_section_data($section);
+  if (empty($check)) {
+    unset ($check);
+    return NULL;
+  }
+  $suffix = preg_replace('/[^0-9]/', '', $suffix);
+  settype($suffix, 'int');
+  
+  $vparams = dncqueue_challange_table_params('section');
+  $defaults = variable_get('dncqueue_say', array());
+  $defaults[] = array(
+    'snid' => $section,
+    'section' => $check[$vparams['nomenclature']],
+    'number' => $number,
+    'suffix' => $suffix
+  );
+  unset ($check, $vparams);
+  variable_set('dncqueue_say', $defaults);
+  unset ($defaults);
+}
+
+function dncqueue_display_served_number($section, $uid = NULL) {
+  $user = !empty($uid) ? user_load($uid) : NULL;
+  if (!user_access('view dnc queue', $user)) {
+    unset ($user);
+    return array('error' => 1, 'message' => t('Sorry you\'re not authorized :('));
+  }
+  
+  $check = dncqueue_get_section_title($section);
+  if (empty($check)) {
+    unset ($check, $user);
+    return NULL;
+  }
+  unset ($check);
+  
+  $vparams = variable_get('dncqueue_display', array());
+//  return $vparams;
+  $result = !empty($vparams[$section]) ? $vparams[$section] : NULL;
+  unset ($vparams);
+  return $result;
+}
+
+function dncqueue_sounding_served_number($uid = NULL) {
+  $user = !empty($uid) ? user_load($uid) : NULL;
+  if (!user_access('use dnc queue', $user)) {
+    unset ($user);
+    return array('error' => 1, 'message' => t('Sorry you\'re not authorized :('));
+  }
+  unset ($user);
+  
+  $queue = variable_get('dncqueue_say', array());
+  if (count($queue) < 1) {
+    unset($queue);
+    return NULL;
+  }
+  
+  ksort($queue);
+  $return = NULL;
+  $drop = NULL;
+  foreach($queue as $key => $value) {
+    // action here
+    if (!empty($value['section'])) {
+      dncqueue_set_current_display(
+        $value['snid'],
+        $value['number'],
+        $value['suffix']
+      );
+      $return = $value;
+      $drop = $key;
+      break;
+    }
+  }
+  unset ($queue[$drop]);
+  variable_set('dncqueue_say', $queue);
+  unset ($queue, $drop);
+  
+  return $return;
+}

@@ -1,0 +1,9 @@
+; $Id: dncqueue.info,v 0.1 2015/05/12 09:32:25 denic Exp $
+name = DNC Queue System
+description = "DNC System for handling queue"
+package = Customs
+dependencies[] = dncmain
+dependencies[] = dncserver
+dependencies[] = dncentityshare
+version = 7.x-0.1-dev
+core = 7.x
